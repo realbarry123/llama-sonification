@@ -11,7 +11,7 @@ inputs = tokenizer("I am ", return_tensors="pt").to(model.device)
 with torch.no_grad():
     output = model.generate(
         **inputs,
-        max_new_tokens=8,
+        max_new_tokens=80,
         return_dict_in_generate=True,
         output_hidden_states=True,
         output_scores=False
@@ -39,4 +39,5 @@ tensor = torch.stack(steps) # (steps, layers, hidden)
 time, layers, hidden = tensor.shape
 audio_tensor = tensor.reshape(time * layers, hidden).float() # (time, voices)
 audio_tensor = normalize(audio_tensor, 50, 2050)
-wavfile.write("02-23.6_multstep-nodiff.wav", 44100, sonify(audio_tensor[:, :], 0.1, do_interpolate=True, do_stereo=True, do_diff=False))
+wav = sonify(audio_tensor, 0.01, do_interpolate=False, do_stereo=True, do_diff=False).numpy()
+wavfile.write("02-24.0_faster.wav", 44100, wav)
