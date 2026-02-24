@@ -17,4 +17,4 @@ hidden_states = normalize(hidden_states, 50, 2050)
 
 print(hidden_states.shape)
 
-wavfile.write("02-23.0.wav", 44100, sonify(hidden_states[:, :], 0.2, do_stereo=True, do_diff=True))
+wavfile.write("02-23.2_interpolate.wav", 44100, sonify(hidden_states[:, :], 0.2, do_interpolate=True, do_stereo=True, do_diff=True))

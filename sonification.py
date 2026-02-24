@@ -38,7 +38,7 @@ def sonify(history: torch.Tensor, note_length, fs=44100, do_stereo=True, do_inte
     samples_per_note = int(fs * note_length)
 
     if do_interpolate:
-        freq_samples = interpolate(history, samples_per_note).cpu().numpy()
+        freq_samples = interpolate(torch.tensor(history), samples_per_note).cpu().numpy()
     else:
         freq_samples = np.repeat(history, samples_per_note, axis=0)
     freq_samples = freq_samples.astype(np.float64)
