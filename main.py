@@ -6,15 +6,37 @@ from scipy.io import wavfile
 tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
 model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
 
-inputs = tokenizer("riverrun, past Eve and Adams, from swerve of shore", return_tensors="pt").to(model.device)
+inputs = tokenizer("I am ", return_tensors="pt").to(model.device)
 
+with torch.no_grad():
+    output = model.generate(
+        **inputs,
+        max_new_tokens=8,
+        return_dict_in_generate=True,
+        output_hidden_states=True,
+        output_scores=False
+    )
 
-with torch.no_grad(): 
-    outputs = model(**inputs, output_hidden_states=True, return_dict=True)
+# Generated token ids (prompt + new tokens)
+generated_ids = output.sequences
+generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+print(generated_text)
 
-hidden_states = outputs.hidden_states[-1].float().squeeze(0)
-hidden_states = normalize(hidden_states, 50, 2050)
+hidden_states = output.hidden_states # (step, layers, batch, seq, hidden)
 
-print(hidden_states.shape)
+steps = []
 
-wavfile.write("02-23.2_interpolate.wav", 44100, sonify(hidden_states[:, :], 0.2, do_interpolate=True, do_stereo=True, do_diff=True))
+for step in hidden_states:
+
+    layers = torch.stack(
+        [layer.squeeze(0)[-1] for layer in step]
+    )  # (layers, hidden)
+
+    steps.append(layers)
+
+tensor = torch.stack(steps) # (steps, layers, hidden)
+
+time, layers, hidden = tensor.shape
+audio_tensor = tensor.reshape(time * layers, hidden).float() # (time, voices)
+audio_tensor = normalize(audio_tensor, 50, 2050)
+wavfile.write("02-23.6_multstep-nodiff.wav", 44100, sonify(audio_tensor[:, :], 0.1, do_interpolate=True, do_stereo=True, do_diff=False))
