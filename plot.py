@@ -19,16 +19,10 @@ def scatterplot(data):
     bar_plot = plt.scatter(range(0, len(data)), data, marker=".")
     plt.show()
 
-def histogram(data): 
+def histogram(data, bin_size=5): 
+    flat = torch.flatten(data).numpy()
     plt.hist(
-        torch.flatten(data).numpy(), 
-        bins=np.arange(torch.min(data), torch.max(data), 5)
+        flat, 
+        bins=np.arange(flat.min(), flat.max(), bin_size)
     )
     plt.show()
-
-def interpolate(history, scale_factor):
-    T, V = history.shape
-    history = history.permute(1, 0).view(1, V, T)
-    history = torch.nn.functional.interpolate(history, scale_factor=scale_factor, mode='linear', align_corners=False)
-    history = history.squeeze().permute(1, 0)
-    return history
