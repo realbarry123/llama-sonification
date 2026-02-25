@@ -20,7 +20,12 @@ def get_stereo_masks(timesteps: int, channels: int):
 def get_diff_mask(history: torch.Tensor, note_length, fs=44100):
     T, C = history.shape
     samples_per_note = int(fs * note_length)
-    diff = torch.cat((torch.zeros(1, C), torch.diff(history, dim=0), torch.zeros(1, C)), dim=0)
+    diff = torch.diff(history, dim=0)
+    diff = torch.cat((
+        torch.zeros(1, C), 
+        diff, 
+        torch.zeros(1, C)
+    ), dim=0)
     diff = torch.abs(diff)
     diff = diff / torch.max(diff)
     diff = interpolate(diff, samples_per_note)
@@ -63,8 +68,8 @@ def sonify(history: torch.Tensor, note_length, fs=44100, do_stereo=True, do_inte
         return stereo
     else:
         wav = mix(audio)
-        # print(wav.numpy()[1000:1100])
         return wav
 
 def normalize(x, lower=50, upper=2050):
-    return (x - torch.min(x)) / (torch.max(x) - torch.min(x)) * (upper-lower) + lower
+    z = (x - x.mean()) / x.std()
+    return (z + 2) * (upper-lower) / 4 + lower
