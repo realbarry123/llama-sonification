@@ -3,6 +3,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from sonification import sonify, normalize
 from scipy.io import wavfile
 from plot import histogram
+# torch.set_num_threads(1)
 
 tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
 model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
@@ -13,7 +14,7 @@ inputs = tokenizer("I am ", return_tensors="pt").to(model.device)
 with torch.no_grad():
     output = model.generate(
         **inputs,
-        max_new_tokens=3,
+        max_new_tokens=16,
         return_dict_in_generate=True,
         output_hidden_states=True,
         output_scores=False
@@ -21,7 +22,7 @@ with torch.no_grad():
 
 # Generated token ids (prompt + new tokens)
 generated_ids = output.sequences
-generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+generated_text = tokenizer.convert_ids_to_tokens(generated_ids[0], skip_special_tokens=True)
 print(generated_text)
 
 hidden_states = output.hidden_states # (step, layers, batch, seq, hidden)
@@ -38,10 +39,14 @@ for step in hidden_states:
 
 tensor = torch.stack(steps) # (steps, layers, hidden)
 
+# tensor = torch.diff(tensor, dim=0)
+
 time, layers, hidden = tensor.shape
 audio_tensor = tensor.reshape(time * layers, hidden).float() # (time, voices)
+#audio_tensor = torch.diff(audio_tensor)
 audio_tensor = normalize(audio_tensor, 50, 1050)
 #histogram(audio_tensor)
 #exit()
-wav = sonify(audio_tensor, 0.1, do_interpolate=False, do_stereo=True, do_diff=True).numpy()
-wavfile.write("02-24.1_better-norm.wav", 44100, wav)
+wav = sonify(audio_tensor, 0.08, do_interpolate=False, do_stereo=True, do_diff=True).numpy()
+wavfile.write("03-02.4_no-step-diff.wav", 44100, wav)
+print("\a")
