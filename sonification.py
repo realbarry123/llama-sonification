@@ -1,5 +1,6 @@
 import torch
 import plot
+from data import normalize
 
 def interpolate(history, scale_factor):
     T, V = history.shape
@@ -75,7 +76,3 @@ def sonify(history: torch.Tensor, note_length, fs=44100, do_stereo=True, do_inte
     else:
         wav = mix(audio)
         return wav
-
-def normalize(x, lower=50, upper=2050):
-    z = (x - x.mean()) / x.std()
-    return (z + 2) * (upper-lower) / 4 + lower

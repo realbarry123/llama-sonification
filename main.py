@@ -1,6 +1,7 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from sonification import sonify, normalize
+from sonification import sonify
+from data import normalize, pca_reduce
 from scipy.io import wavfile
 from plot import histogram
 # torch.set_num_threads(1)
@@ -14,7 +15,7 @@ inputs = tokenizer("I am ", return_tensors="pt").to(model.device)
 with torch.no_grad():
     output = model.generate(
         **inputs,
-        max_new_tokens=16,
+        max_new_tokens=32,
         return_dict_in_generate=True,
         output_hidden_states=True,
         output_scores=False
@@ -43,10 +44,11 @@ tensor = torch.stack(steps) # (steps, layers, hidden)
 
 time, layers, hidden = tensor.shape
 audio_tensor = tensor.reshape(time * layers, hidden).float() # (time, voices)
-#audio_tensor = torch.diff(audio_tensor)
+audio_tensor = torch.diff(audio_tensor)
+audio_tensor = pca_reduce(audio_tensor, q=128)
 audio_tensor = normalize(audio_tensor, 50, 1050)
 #histogram(audio_tensor)
 #exit()
 wav = sonify(audio_tensor, 0.08, do_interpolate=False, do_stereo=True, do_diff=True).numpy()
-wavfile.write("03-02.4_no-step-diff.wav", 44100, wav)
+wavfile.write("03-02.6_diff-pca-q=128.wav", 44100, wav)
 print("\a")
