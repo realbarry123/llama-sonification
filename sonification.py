@@ -1,4 +1,5 @@
 import torch
+import plot
 
 def interpolate(history, scale_factor):
     T, V = history.shape
@@ -27,9 +28,14 @@ def get_diff_mask(history: torch.Tensor, note_length, fs=44100):
         torch.zeros(1, C)
     ), dim=0)
     diff = torch.abs(diff)
-    diff = diff / torch.max(diff)
+    #diff = torch.sigmoid(diff)
+    #diff = diff / torch.max(diff)
     diff = interpolate(diff, samples_per_note)
     diff = diff[samples_per_note // 2 : -samples_per_note // 2]
+    #print(torch.min(diff))
+    #print(torch.max(diff))
+    diff = normalize(diff, 0, 1)
+    #plot.histogram(diff, bin_size=0.001)
     return diff
 
 def sonify(history: torch.Tensor, note_length, fs=44100, do_stereo=True, do_interpolate=False, do_diff=False):
