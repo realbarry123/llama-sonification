@@ -28,7 +28,7 @@ def generate_phase(frequencies, fs=44100):
     return phase
 
 def mix(audio):
-    """ Sum the voice channels of a (time, voices)-tensor, and normalize to int16 """
+    """ Sum the voice channels of a (time, voices)-tensor, normalize to int16 """
     mix = torch.sum(audio, dim=1)
     mix /= torch.max(torch.abs(mix))
     return (mix * 32767).to(torch.int16)
@@ -83,6 +83,47 @@ def sonify(history: torch.Tensor, note_length, fs=44100, do_stereo=True, do_inte
     if do_diff:
         diff_mask = get_diff_mask(history, note_length)
         audio *= diff_mask
+
+    if do_stereo:
+        T, C = audio.shape
+
+        left_mask, right_mask = get_stereo_masks(T, C)
+        stereo = torch.stack((
+            mix(audio * left_mask), 
+            mix(audio * right_mask)
+        ))
+        stereo = stereo.permute(1, 0)
+
+        return stereo
+    else:
+        wav = mix(audio)
+        return wav
+
+def gainson(gains: torch.Tensor, freq_map: torch.Tensor, note_length, fs=44100, do_stereo=True):
+    T, V = gains.shape
+    gains = normalize(gains, lower=0, upper=0.9)
+    samples_per_note = int(fs * note_length)
+
+    if len(freq_map.shape) == 1:
+
+        if freq_map.shape[0] != gains.shape[1]:
+            raise ValueError("1D freq_map must match voice dimension of gains")
+        print(freq_map.shape)
+        freq_map = freq_map.unsqueeze(0)
+        print(freq_map.shape)
+        freq_map = freq_map.repeat(T, 1)
+
+    if list(freq_map.shape) != list(gains.shape): 
+        print(freq_map.shape)
+        print(gains.shape)
+        raise ValueError("2D freq_map must match shape of gains")
+    
+    freq_samples = torch.repeat_interleave(freq_map, samples_per_note, dim=0)
+    gain_samples = torch.repeat_interleave(gains, samples_per_note, dim=0)
+
+    phase = generate_phase(freq_samples)
+    audio = torch.sin(phase)
+    audio *= gain_samples
 
     if do_stereo:
         T, C = audio.shape

@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from sonification import sonify
+from sonification import sonify, gainson
 from data import normalize, pca_reduce
 from scipy.io import wavfile
 from plot import histogram
@@ -46,5 +46,6 @@ audio_tensor = tensor.reshape(time * layers, hidden).float() # (time, voices)
 audio_tensor = normalize(audio_tensor, 50, 1050)
 
 wav = sonify(audio_tensor, 0.12, do_interpolate=False, do_stereo=True, do_diff=False).numpy()
-wavfile.write("03-09.0_demo.wav", 44100, wav)
+wav = gainson(audio_tensor, torch.arange(100, 2148), 0.12, do_stereo=True).numpy()
+wavfile.write("03-16.0_gainson.wav", 44100, wav)
 print("\a")
