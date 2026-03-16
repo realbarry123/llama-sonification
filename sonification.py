@@ -36,12 +36,12 @@ def mix(audio):
 
 def get_stereo_masks(timesteps: int, voices: int):
     """
-    Generate L and R stereo masks of size (time, voices), with 
+    Generate L and R stereo masks of size (1, voices), with 
     linear variation across the voices dimension. To be multiplied
     with audio tensor. 
     """
-    left_mask = torch.arange(1, 0, -1/voices).unsqueeze(0).repeat(timesteps, 1)
-    right_mask = torch.ones(voices).unsqueeze(0).repeat(timesteps, 1) - left_mask
+    left_mask = torch.arange(1, 0, -1/voices).unsqueeze(0)
+    right_mask = torch.ones(voices).unsqueeze(0) - left_mask
     return left_mask, right_mask
 
 def mix_stereo(audio): 
