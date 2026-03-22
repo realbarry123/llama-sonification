@@ -2,9 +2,15 @@ import torch
 
 def normalize(x, lower=50, upper=2050):
     z = (x - x.mean()) / x.std()
-    return (z + 2) * (upper-lower) / 4 + lower
+    freq = (z + 2) * (upper-lower) / 4 + lower
+    return freq
+    # return torch.clamp(freq, lower, upper)
 
 def pca_reduce(x, q):
     x = x - x.mean(dim=0, keepdim=True)
     U, S, V = torch.pca_lowrank(x, q=q)
-    return U @ torch.diag(S)
+    return U @ torch.diag(S)def to_uniform(x, lower, upper):
+    T, V = x.shape
+    rankings = x.flatten().argsort().argsort().view(T, V)
+    normalized = rankings / torch.max(rankings)
+    return normalized * (upper - lower) + lower
