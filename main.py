@@ -44,11 +44,10 @@ tensor = torch.stack(steps) # (steps, layers, hidden)
 time, layers, hidden = tensor.shape
 audio_tensor = tensor.reshape(time * layers, hidden).float() # (time, voices)
 # audio_tensor = pca_reduce(audio_tensor, q=8)
-audio_tensor = normalize(audio_tensor, 50, 1050)
 
 wav = sonify(audio_tensor, 0.12, do_interpolate=False, do_stereo=True, do_diff=False).numpy()
 # wav = gainson(audio_tensor, torch.arange(100, 2148), 0.12, do_stereo=True).numpy()
-wavfile.write("03-21.0_layer-stereo.wav", 44100, wav)
+wavfile.write("03-21.2_l-s-norm-noclamp.wav", 44100, wav)
 #wav = gainson(audio_tensor, torch.arange(50, 2098), 0.12, do_stereo=True).numpy()
 
 # wavfile.write("03-20.3_uniform-interpolate.wav", 44100, wav)
