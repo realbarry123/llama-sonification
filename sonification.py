@@ -29,8 +29,8 @@ def generate_phase(frequencies, fs=44100):
     return phase
 
 def mix(audio):
-    """ Sum the voice channels of a (time, voices)-tensor, normalize to int16 """
-    mix = torch.sum(audio, dim=1)
+    """ Sum the voice channels of a (channels, time, voices)-tensor, normalize to int16 """
+    mix = torch.sum(audio, dim=2)
     mix /= torch.max(torch.abs(mix))
     return (mix * 32767).to(torch.int16)
 
@@ -63,18 +63,14 @@ def get_layer_stereo_masks(timesteps: int, pass_size: int):
 def mix_stereo(audio, pass_size): 
     T, C = audio.shape
 
-    left_mask, right_mask = get_stereo_masks(C)
-    # mask_1, mask_2 = get_layer_stereo_masks(T, pass_size)
+    #left_mask, right_mask = get_stereo_masks(C)
+    left_mask, right_mask = get_layer_stereo_masks(T, pass_size)
     #timer.log("stereo masks generated")
     left = audio * left_mask
     right = audio * right_mask
     #timer.log("stereo channels masked")
-    stereo = (
-        mix(left), 
-        mix(right)
-    )
     #timer.log("stereo mixed")
-    stereo = torch.stack(stereo)
+    stereo = mix(torch.stack((left, right)))
     stereo = stereo.permute(1, 0)
     return stereo
 
@@ -130,9 +126,9 @@ def sonify(history: torch.Tensor, note_length, fs=44100, do_stereo=True, do_inte
         stereo = mix_stereo(audio, samples_per_note * 17)
         return stereo
     else:
-        wav = mix(audio)
+        wav = mix(audio.unsqueeze(0))
         # timer.log("mono mixing complete")
-        return wav
+        return wav.squeeze(0)
 
 def gainson(gains: torch.Tensor, freq_map: torch.Tensor, note_length, fs=44100, do_stereo=True):
     # timer = Timer()
@@ -169,5 +165,5 @@ def gainson(gains: torch.Tensor, freq_map: torch.Tensor, note_length, fs=44100, 
         # timer.log("stereo mixed")
         return stereo
     else:
-        wav = mix(audio)
+        wav = mix(audio.unsqueeze(0))
         return wav
