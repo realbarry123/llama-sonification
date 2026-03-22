@@ -4,8 +4,9 @@ from sonification import sonify, gainson
 from data import normalize, pca_reduce
 from scipy.io import wavfile
 from plot import histogram
+from timer import Timer
 
-NEW_TOKENS = 12
+NEW_TOKENS = 8
 
 tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
 model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
@@ -23,8 +24,8 @@ with torch.no_grad():
 
 # Generated token ids (prompt + new tokens)
 generated_ids = output.sequences
-generated_text = tokenizer.convert_ids_to_tokens(generated_ids[0], skip_special_tokens=True)
-print(generated_text)
+#generated_text = tokenizer.convert_ids_to_tokens(generated_ids[0], skip_special_tokens=True)
+#print(generated_text)
 
 hidden_states = output.hidden_states 
 # (step(tuple), layers(tuple), batch(tensor), seq(tensor), hidden(tensor))
@@ -42,10 +43,17 @@ tensor = torch.stack(steps) # (steps, layers, hidden)
 
 time, layers, hidden = tensor.shape
 audio_tensor = tensor.reshape(time * layers, hidden).float() # (time, voices)
-# audio_tensor = pca_reduce(audio_tensor, q=8)
-audio_tensor = normalize(audio_tensor, 50, 1050)
+#audio_tensor = pca_reduce(audio_tensor, q=128)
+for n in range(9, 17):
+    REPS = 8
+    sum = 0
+    for i in range(REPS):
+        audio_tensor = torch.randn(audio_tensor.shape)
+        timer = Timer()
+        wav = sonify(audio_tensor[:(17*(n))], 0.12, do_interpolate=True, do_stereo=True, do_diff=False).numpy()
+        sum += timer.get_time()
+    print(f"{n}: {sum/REPS}")
+#wav = gainson(audio_tensor, torch.arange(50, 2098), 0.12, do_stereo=True).numpy()
 
-wav = sonify(audio_tensor, 0.12, do_interpolate=False, do_stereo=True, do_diff=False).numpy()
-wav = gainson(audio_tensor, torch.arange(100, 2148), 0.12, do_stereo=True).numpy()
-wavfile.write("03-16.0_gainson.wav", 44100, wav)
+# wavfile.write("03-20.3_uniform-interpolate.wav", 44100, wav)
 print("\a")
