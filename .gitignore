@@ -211,3 +211,5 @@ __marimo__/
 *.wav
 *.pt
 pyproject.toml
+*.ipynb
+foo.py
