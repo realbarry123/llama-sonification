@@ -5,9 +5,9 @@ class Masker():
     @staticmethod
     def _get_lr_masks(voices: int):
         """
-        Generate L and R stereo masks of size (1, voices), with 
-        linear variation across the voices dimension. To be multiplied
-        with audio tensor. 
+        Generate L and R stereo masks of size (1, voices), with linear
+        variation across the voices dimension. To be multiplied with
+        audio tensor. 
         """
         l_mask = torch.arange(1, 0, -1/voices).unsqueeze(0)
         r_mask = torch.ones(voices).unsqueeze(0) - l_mask
@@ -17,9 +17,9 @@ class Masker():
     @staticmethod
     def _get_fb_masks(timesteps: int, pass_size: int):
         """
-        Generate F and B stereo masks of size (time, 1), with
-        linear variation across the layer dimension. To be multiplied
-        with audio tensor.
+        Generate F and B stereo masks of size (time, 1), with linear
+        variation across the layer dimension. To be multiplied with
+        audio tensor.
         """
         f_mask = torch.arange(1, 0, -1/pass_size)
         b_mask = torch.ones(pass_size) - f_mask
@@ -60,8 +60,8 @@ class Masker():
     
     def __call__(self, x, channel_names: tuple):
         """
-        Create a stereo tensor of size (C, T, V) from a mono tensor of size (T, V) 
-        and a list of channel names
+        Create a stereo tensor of size (channels, time, voices) from a 
+        mono tensor of size (time, voices) and a list of channel names
         """
         T, V = x.shape
         stereo = torch.zeros(len(channel_names), T, V)

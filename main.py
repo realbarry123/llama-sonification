@@ -1,11 +1,7 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from sonification import sonify, gainson
 from sonifier import Sonifier
-from data import normalize, pca_reduce
 from scipy.io import wavfile
-from plot import histogram
-from timer import Timer
 
 NEW_TOKENS = 3
 
@@ -40,9 +36,8 @@ for step in hidden_states:
 
     steps.append(layers)
 
-states = torch.stack(steps) # (steps, layers, hidden)
+states = torch.stack(steps) # (time, layers, hidden)
 
-time, layers, hidden = states.shape
 sonify = Sonifier(states.shape)
 wav = sonify(states).numpy()
 wavfile.write("stereo.wav", 44100, wav)

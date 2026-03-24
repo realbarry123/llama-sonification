@@ -9,7 +9,7 @@ def normalize(x, lower=50, upper=2050):
 def pca_reduce(x, q):
     x = x - x.mean(dim=0, keepdim=True)
     U, S, V = torch.pca_lowrank(x, q=q)
-    return U @ torch.diag(S)def to_uniform(x, lower, upper):
+    return U @ torch.diag(S)
 
 def to_uniform(x, lower, upper):
     T, V = x.shape
