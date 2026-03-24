@@ -15,29 +15,30 @@ class Masker():
         return l_mask, r_mask
 
     @staticmethod
-    def _get_fb_masks(timesteps: int, n_layers: int):
+    def _get_fb_masks(timesteps: int, pass_size: int):
         """
-        Generate F and B stereo masks of size (timesteps, 1), with
+        Generate F and B stereo masks of size (time, 1), with
         linear variation across the layer dimension. To be multiplied
         with audio tensor.
         """
-        f_mask = torch.arange(1, 0, -1/n_layers)
-        b_mask = torch.ones(n_layers) - f_mask
+        f_mask = torch.arange(1, 0, -1/pass_size)
+        b_mask = torch.ones(pass_size) - f_mask
 
-        n_passes = int(timesteps / n_layers)
+        n_passes = int(timesteps / pass_size)
+        print(n_passes * pass_size, timesteps)
         f_mask = f_mask.repeat((n_passes,)).unsqueeze(1)
         b_mask = b_mask.repeat((n_passes,)).unsqueeze(1)
 
         return f_mask, b_mask
     
-    def __init__(self, shape, n_layers=17):
+    def __init__(self, shape, pass_size):
         T, V = shape
         self.l, self.r = self._get_lr_masks(V)
-        self.f, self.b = self._get_fb_masks(T, n_layers)
+        self.f, self.b = self._get_fb_masks(T, pass_size)
     
     def _mask(self, x, channel_name):
         """
-        Mask a tensor x of size (T, V) based on channel name
+        Mask a (time, voices)-tensor x based on channel name
         """
         x = x.clone()
 
