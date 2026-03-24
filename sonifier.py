@@ -7,32 +7,38 @@ from masker import Masker
 
 class Sonifier():
 
-    def __init__(self, shape):
-        self.input_shape = shape
-        self.fs = 44100
-        self.configs = {
-            "note_length": 0.12,
+    def __init__(self, shape, note_length, fs=44100):
+        self._INPUT_SHAPE = shape
+        self._FS = fs
+        self._NOTE_LENGTH = note_length
+        self._SAMPLES_PER_NOTE = int(self._FS * self._NOTE_LENGTH)
+
+        self.config = {
+            "sonification_type": "freq",
             "freq_lower": 50,
             "freq_upper": 6000,
 
             "do_interpolate": False,
             "do_diff": False,
+
+            "channel_names": ("-b", "-f"),
+
+            "freq_map": None
         }
 
-        samples_per_note = int(self.fs * self.configs["note_length"])
-        
         self.masker =  Masker(
             shape=(
-                int(shape[0] * shape[1] * samples_per_note), 
+                int(shape[0] * shape[1] * self._SAMPLES_PER_NOTE), 
                 shape[2]
             ),
-            pass_size=(shape[1] * samples_per_note))
-        
-        self.channel_names = ("-b", "-f")
+            pass_size=(shape[1] * self._SAMPLES_PER_NOTE)
+        )
 
 
     def interpolate(self, x, scale_factor):
-        """ Interpolate a (time, voices)-tensor to shape (time * scale_factor, voices) """
+        """ 
+        Interpolate a (time, voices)-tensor to shape (time * scale_factor, voices) 
+        """
         T, V = x.shape
         x = x.permute(1, 0).view(1, V, T) # (1, V, T)
 
@@ -47,33 +53,35 @@ class Sonifier():
         return x
 
 
-    def generate_phase(self, frequencies, fs=44100):
+    def generate_phase(self, frequencies):
         """
-        Given a (timesteps, voices)-tensor, output a (time, voices)-tensor of phases
-        where time = timesteps * fs
+        Given a (timesteps, voices)-tensor, output a (time, voices)-tensor
+        of phases where time = timesteps * fs
         """
-        delta = 2 * torch.pi * frequencies / float(fs) # phase increment per sample
+        delta = 2 * torch.pi * frequencies / float(self._FS) # phase increment per sample
         phase = torch.cumsum(delta, axis=0) # integrate
         phase = torch.fmod(phase, 2 * torch.pi) # wrap phase to prevent overflow
         return phase
 
 
     def mix(self, audio):
-        """ Sum the voice channels of a (channels, time, voices)-tensor, normalize to int16 """
+        """ 
+        Sum the voice channels of a (channels, time, voices)-tensor, 
+        normalize to int16 
+        """
         mix = torch.sum(audio, dim=2)
         mix /= torch.max(torch.abs(mix))
         return (mix * 32767).to(torch.int16)
 
 
-    def get_diff_mask(self, history: torch.Tensor):
+    def get_diff_mask(self, states: torch.Tensor):
         """
         Generate a (time, voices) mask to weigh an audio tensor's amplitude
         depending on the interpolated derivative of time
         """
-        T, V = history.shape
-        samples_per_note = int(self.fs * self.configs["note_length"])
+        T, V = states.shape
 
-        diff = torch.abs(torch.diff(history, dim=0))
+        diff = torch.abs(torch.diff(states, dim=0))
 
         diff = torch.cat((
             torch.zeros(1, V), 
@@ -81,37 +89,82 @@ class Sonifier():
             torch.zeros(1, V)
         ), dim=0) # padded first derivative
 
-        diff = self.interpolate(diff, samples_per_note)
-        diff = diff[samples_per_note // 2 : -samples_per_note // 2] # crop to fit
+        diff = self.interpolate(diff, self._SAMPLES_PER_NOTE)
+        diff = diff[self._SAMPLES_PER_NOTE // 2 : -self._SAMPLES_PER_NOTE // 2] # crop to fit
         diff = normalize(diff, 0, 1)
         return diff
 
+    def __call__(self, states: torch.Tensor, freq_map: torch.Tensor=None):
+        if self.config["sonification_type"] == "freq":
+            return self.freq_son(states)
+        
+        elif self.config["sonification_type"] == "gain":
+            
+            if self.config["freq_map"] == None:
+                raise ValueError("config[\"freq_map\"] must be defined for gain sonification")
+            
+            return self.gain_son(states, self.config["freq_map"])
+        
+        else:
+            raise ValueError(f"sonification type \"{self.config["sonification_type"]}\" not defined")
 
-    def __call__(self, states: torch.Tensor):
+    def freq_son(self, states: torch.Tensor):
         """
         Sonify a (seq_length, layers, voices)-tensor
         """
-        if list(states.shape) != list(self.input_shape):
-            raise ValueError(f"input shape {list(states.shape)} does not match with standard shape {list(self.input_shape)}")
-        S, L, V = self.input_shape
+        if list(states.shape) != list(self._INPUT_SHAPE):
+            raise ValueError(f"input shape {list(states.shape)} does not match with standard shape {list(self._INPUT_SHAPE)}")
+        S, L, V = self._INPUT_SHAPE
         states = states.reshape(S * L, V).float() # (time, voices)
         states = normalize(states, 50, 6000)
 
-        samples_per_note = int(self.fs * self.configs["note_length"])
-
-        if self.configs["do_interpolate"]:
-            freq_samples = self.interpolate(states, samples_per_note)
+        if self.config["do_interpolate"]:
+            freq_samples = self.interpolate(states, self._SAMPLES_PER_NOTE)
         else:
-            freq_samples = torch.repeat_interleave(states, samples_per_note, dim=0)
+            freq_samples = torch.repeat_interleave(states, self._SAMPLES_PER_NOTE, dim=0)
 
         phase = self.generate_phase(freq_samples)
         audio = torch.sin(phase)
 
-        if self.configs["do_diff"]:
-            diff_mask = self.get_diff_mask(states, self.configs["note_length"])
+        if self.config["do_diff"]:
+            diff_mask = self.get_diff_mask(states, self._NOTE_LENGTH)
             audio *= diff_mask
 
-        stereo = self.masker(audio, self.channel_names)
+        stereo = self.masker(audio, self.config["channel_names"])
+        stereo = self.mix(stereo)
+
+        stereo = stereo.permute(1, 0) # stupid but I have to do this
+
+        return stereo
+    
+    def gain_son(self, states: torch.Tensor, freq_map: torch.Tensor):
+
+        S, L, V = self._INPUT_SHAPE
+        states = states.reshape(S * L, V).float() # (time, voices)
+        gains = normalize(states, lower=0, upper=0.5)
+
+        if len(freq_map.shape) == 1:
+
+            if freq_map.shape[0] != gains.shape[1]:
+                raise ValueError("1D freq_map must match voice dimension of gains")
+            freq_map = freq_map.unsqueeze(0)
+            freq_map = freq_map.repeat(S*L, 1)
+
+        elif list(freq_map.shape) != list(gains.shape): 
+            raise ValueError("2D freq_map must match shape of gains")
+        
+        freq_samples = torch.repeat_interleave(freq_map, self._SAMPLES_PER_NOTE, dim=0)
+
+        if self.config["do_interpolate"]:
+            gain_samples = self.interpolate(states, self._SAMPLES_PER_NOTE)
+        else:
+            gain_samples = torch.repeat_interleave(states, self._SAMPLES_PER_NOTE, dim=0)
+
+        phase = self.generate_phase(freq_samples)
+        audio = torch.sin(phase)
+        audio *= gain_samples
+
+        stereo = self.masker(audio, self.config["channel_names"])
         stereo = self.mix(stereo)
 
         stereo = stereo.permute(1, 0) # stupid but I have to do this

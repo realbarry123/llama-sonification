@@ -38,6 +38,8 @@ for step in hidden_states:
 
 states = torch.stack(steps) # (time, layers, hidden)
 
-sonify = Sonifier(states.shape)
+sonify = Sonifier(states.shape, note_length=0.12)
+sonify.config["freq_map"] = torch.arange(0, 2048)
+sonify.config["sonification_type"] = "freq"
 wav = sonify(states).numpy()
 wavfile.write("stereo.wav", 44100, wav)
