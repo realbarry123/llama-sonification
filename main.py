@@ -1,12 +1,13 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from sonification import sonify, gainson
+from sonifier import Sonifier
 from data import normalize, pca_reduce
 from scipy.io import wavfile
 from plot import histogram
 from timer import Timer
 
-NEW_TOKENS = 8
+NEW_TOKENS = 3
 
 tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
 model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
@@ -39,16 +40,9 @@ for step in hidden_states:
 
     steps.append(layers)
 
-tensor = torch.stack(steps) # (steps, layers, hidden)
+states = torch.stack(steps) # (steps, layers, hidden)
 
-time, layers, hidden = tensor.shape
-audio_tensor = tensor.reshape(time * layers, hidden).float() # (time, voices)
-# audio_tensor = pca_reduce(audio_tensor, q=8)
-
-wav = sonify(audio_tensor, 0.12, do_interpolate=False, do_stereo=True, do_diff=False).numpy()
-# wav = gainson(audio_tensor, torch.arange(100, 2148), 0.12, do_stereo=True).numpy()
-wavfile.write("03-21.2_l-s-norm-noclamp.wav", 44100, wav)
-#wav = gainson(audio_tensor, torch.arange(50, 2098), 0.12, do_stereo=True).numpy()
-
-# wavfile.write("03-20.3_uniform-interpolate.wav", 44100, wav)
-print("\a")
+time, layers, hidden = states.shape
+sonify = Sonifier(states.shape)
+wav = sonify(states).numpy()
+wavfile.write("stereo.wav", 44100, wav)
