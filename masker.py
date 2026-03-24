@@ -9,10 +9,10 @@ class Masker():
         linear variation across the voices dimension. To be multiplied
         with audio tensor. 
         """
-        left_mask = torch.arange(1, 0, -1/voices).unsqueeze(0)
-        right_mask = torch.ones(voices).unsqueeze(0) - left_mask
+        l_mask = torch.arange(1, 0, -1/voices).unsqueeze(0)
+        r_mask = torch.ones(voices).unsqueeze(0) - l_mask
 
-        return left_mask, right_mask
+        return l_mask, r_mask
 
     @staticmethod
     def _get_fb_masks(timesteps: int, n_layers: int):
@@ -57,9 +57,15 @@ class Masker():
         
         return x
     
-    def __call__(self, x, channel_names):
-        channels = []
-        for channel_name in channel_names:
-            channels.append(self._mask(x, channel_name))
-        #return torch.stack(channels)
-        return channels
+    def __call__(self, x, channel_names: tuple):
+        """
+        Create a stereo tensor of size (C, T, V) from a mono tensor of size (T, V) 
+        and a list of channel names
+        """
+        T, V = x.shape
+        stereo = torch.zeros(len(channel_names), T, V)
+
+        for i in range(len(channel_names)):
+            stereo[i] = self._mask(x, channel_names[i])
+
+        return stereo
