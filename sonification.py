@@ -58,19 +58,17 @@ def get_layer_stereo_masks(timesteps: int, pass_size: int):
     f_mask = f_mask.repeat((n_passes,)).unsqueeze(1)
     b_mask = b_mask.repeat((n_passes,)).unsqueeze(1)
 
-    return f_mask, b_mask
+    return torch.stack((f_mask, b_mask))
 
 def mix_stereo(audio, pass_size): 
     T, C = audio.shape
+    audio = audio.unsqueeze(0).repeat((2, 1, 1))
 
     #left_mask, right_mask = get_stereo_masks(C)
-    left_mask, right_mask = get_layer_stereo_masks(T, pass_size)
-    #timer.log("stereo masks generated")
-    left = audio * left_mask
-    right = audio * right_mask
-    #timer.log("stereo channels masked")
-    #timer.log("stereo mixed")
-    stereo = mix(torch.stack((left, right)))
+    mask = get_layer_stereo_masks(T, pass_size)
+    print(audio.shape, mask.shape)
+    audio *= mask
+    stereo = mix(audio)
     stereo = stereo.permute(1, 0)
     return stereo
 
