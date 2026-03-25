@@ -94,19 +94,6 @@ class Sonifier():
         diff = normalize(diff, 0, 1)
         return diff
 
-    def __call__(self, states: torch.Tensor, freq_map: torch.Tensor=None):
-        if self.config["sonification_type"] == "freq":
-            return self.freq_son(states)
-        
-        elif self.config["sonification_type"] == "gain":
-            
-            if self.config["freq_map"] == None:
-                raise ValueError("config[\"freq_map\"] must be defined for gain sonification")
-            
-            return self.gain_son(states, self.config["freq_map"])
-        
-        else:
-            raise ValueError(f"sonification type \"{self.config["sonification_type"]}\" not defined")
 
     def freq_son(self, states: torch.Tensor):
         """
@@ -116,7 +103,7 @@ class Sonifier():
             raise ValueError(f"input shape {list(states.shape)} does not match with standard shape {list(self._INPUT_SHAPE)}")
         S, L, V = self._INPUT_SHAPE
         states = states.reshape(S * L, V).float() # (time, voices)
-        states = normalize(states, 50, 6000)
+        states = normalize(states, self.config["freq_lower"], self.config["freq_upper"])
 
         if self.config["do_interpolate"]:
             freq_samples = self.interpolate(states, self._SAMPLES_PER_NOTE)
@@ -170,6 +157,21 @@ class Sonifier():
         stereo = stereo.permute(1, 0) # stupid but I have to do this
 
         return stereo
+    
+
+    def __call__(self, states: torch.Tensor, freq_map: torch.Tensor=None):
+        if self.config["sonification_type"] == "freq":
+            return self.freq_son(states)
+        
+        elif self.config["sonification_type"] == "gain":
+            
+            if self.config["freq_map"] == None:
+                raise ValueError("config[\"freq_map\"] must be defined for gain sonification")
+            
+            return self.gain_son(states, self.config["freq_map"])
+        
+        else:
+            raise ValueError(f"sonification type \"{self.config["sonification_type"]}\" not defined")
     
 
 if __name__ == "__main__":
