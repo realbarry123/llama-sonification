@@ -1,7 +1,7 @@
 import torch
 from scipy.io import wavfile
 
-from data import normalize
+from data import normalize, pca_reduce
 from masker import Masker
 
 
@@ -17,6 +17,7 @@ class Sonifier():
             "sonification_type": "freq",
             "freq_lower": 50,
             "freq_upper": 6000,
+            "do_abs": False,
 
             "do_interpolate": False,
             "do_diff": False,
@@ -103,7 +104,14 @@ class Sonifier():
             raise ValueError(f"input shape {list(states.shape)} does not match with standard shape {list(self._INPUT_SHAPE)}")
         S, L, V = self._INPUT_SHAPE
         states = states.reshape(S * L, V).float() # (time, voices)
+        # states = pca_reduce(states, q=128)
+        if self.config["do_abs"]:
+            states = torch.abs(states)
+        
         states = normalize(states, self.config["freq_lower"], self.config["freq_upper"])
+
+        if self.config["do_abs"]:
+            states = states.clamp(min=self.config["freq_lower"])
 
         if self.config["do_interpolate"]:
             freq_samples = self.interpolate(states, self._SAMPLES_PER_NOTE)
@@ -124,10 +132,13 @@ class Sonifier():
 
         return stereo
     
+
     def gain_son(self, states: torch.Tensor, freq_map: torch.Tensor):
 
         S, L, V = self._INPUT_SHAPE
         states = states.reshape(S * L, V).float() # (time, voices)
+        if self.config["do_abs"]:
+            gains = torch.abs(gains)
         gains = normalize(states, lower=0, upper=0.5)
 
         if len(freq_map.shape) == 1:
