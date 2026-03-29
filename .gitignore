@@ -212,4 +212,5 @@ __marimo__/
 *.pt
 pyproject.toml
 *.ipynb
+*.onnx
 foo.py

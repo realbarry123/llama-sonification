@@ -8,63 +8,60 @@ class ModelWrapper():
         self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
         self.model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
         self.chunk_size = 4
-        self.next_chunk_idx = self.chunk_size
+        self.next_seq_idx = 0
+        self.next_state_idx = 0
+        self.context = None
+        self.hidden_states = None
     
 
     def seed(self, text):
-        self.context_str = text
-        self.chunks_generated = 0
+        self.context = self.tokenizer(text, return_tensors="pt").to(self.model.device)
+        self.generate(self.chunk_size)
 
 
     def generate(self, tokens):
-        if not self.context_str:
+        if not self.context:
             raise ValueError("must provide seed before generation")
 
-        context = self.tokenizer(self.context_str, return_tensors="pt").to(self.model.device)
-
         with torch.no_grad():
-            self.output = self.model.generate(
-                **context,
+            output = self.model.generate(
+                **self.context,
                 max_new_tokens=tokens,
                 return_dict_in_generate=True,
                 output_hidden_states=True,
                 output_scores=False
             )
         
-        self.context_str = self.tokenizer.decode(
-            self.output.sequences[0], 
-            skip_special_tokens=True
-        )
-        print(self.context_str)
-        self.chunks_generated += 1
+        self.context = output.sequences
+        self.hidden_states = output.hidden_states
     
+
     def next(self):
-        if self.next_chunk_idx == self.chunk_size: 
-            self.generate(self.chunk_size)
-            self.next_chunk_idx = 0
-        token_idx = self.chunk_size * (self.chunks_generated - 1) + self.next_chunk_idx
-        next_token = self.get_last_output()[token_idx]
-        next_state = self.get_last_hidden_state()[token_idx]
+        if self.next_state_idx == self.chunk_size:
+            self.generate()
+            self.next_state_idx = 0
+        next_token = self.context[self.next_seq_idx]
+        next_state = self.hidden_states[self.next_state_idx]
 
-        self.next_chunk_idx += 1
-        return next_token, next_state
+        self.next_seq_idx += 1
+        self.next_state_idx += 1
+        return next_token, self.format_hidden_states(next_state)
 
-    def get_last_output(self):
+
+    def get_last_tokens(self):
 
         if self.output == None:
             raise ValueError("output does not exist yet")
         generated_ids = self.output.sequences
-        generated_text = self.tokenizer.convert_ids_to_tokens(generated_ids[0], skip_special_tokens=True)
-        return generated_text
+        generated_tokens = self.tokenizer.convert_ids_to_tokens(
+            self.context[0], 
+            skip_special_tokens=True
+        )
+        return generated_tokens
     
-
-    def get_last_hidden_state(self):
-        
-        if self.output == None:
-            raise ValueError("output does not exist yet")
-        
-        hidden_states = self.output.hidden_states 
-
+    @staticmethod
+    def format_hidden_states(hidden_states):
+    
         steps = []
 
         for step in hidden_states:
@@ -75,6 +72,7 @@ class ModelWrapper():
 
         return torch.stack(steps).to("cpu") # (time, layers, hidden)
     
+
 if __name__ == "__main__":
     model = ModelWrapper()
     model.seed("I am")

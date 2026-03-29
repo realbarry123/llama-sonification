@@ -1,6 +1,6 @@
 import torch
 
-def normalize(x, lower=50, upper=2050):
+def normalize(x, lower, upper):
     z = (x - x.mean()) / x.std()
     freq = (z + 2) * (upper-lower) / 4 + lower
     return freq

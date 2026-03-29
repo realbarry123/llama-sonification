@@ -25,7 +25,7 @@ class Masker():
         b_mask = torch.ones(pass_size) - f_mask
 
         n_passes = int(timesteps / pass_size)
-        print(n_passes * pass_size, timesteps)
+        
         f_mask = f_mask.repeat((n_passes,)).unsqueeze(1)
         b_mask = b_mask.repeat((n_passes,)).unsqueeze(1)
 
