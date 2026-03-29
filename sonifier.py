@@ -15,8 +15,8 @@ class Sonifier():
 
         self.config = {
             "sonification_type": "freq",
-            "freq_lower": 50,
-            "freq_upper": 6000,
+            "freq_lower": 20,
+            "freq_upper": 20000,
             "do_abs": True,
 
             "do_interpolate": False,

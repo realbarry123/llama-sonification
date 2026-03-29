@@ -1,10 +1,8 @@
 import torch
 
 def normalize(x, lower, upper):
-    z = (x - x.mean()) / x.std()
-    freq = (z + 2) * (upper-lower) / 4 + lower
+    freq = x / x.std() * (upper-lower) / 4 + lower
     return freq
-    # return torch.clamp(freq, lower, upper)
 
 def pca_reduce(x, q):
     x = x - x.mean(dim=0, keepdim=True)
