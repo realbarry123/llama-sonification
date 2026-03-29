@@ -17,10 +17,11 @@ class Sonifier():
             "sonification_type": "freq",
             "freq_lower": 50,
             "freq_upper": 6000,
-            "do_abs": False,
+            "do_abs": True,
 
             "do_interpolate": False,
             "do_diff": False,
+            "pca": None,
 
             "channel_names": ("-b", "-f"),
 
@@ -53,14 +54,15 @@ class Sonifier():
         x = x.squeeze().permute(1, 0) # (T * scale, V)
         return x
 
-
+    
     def generate_phase(self, frequencies):
         """
         Given a (timesteps, voices)-tensor, output a (time, voices)-tensor
         of phases where time = timesteps * fs
         """
-        delta = 2 * torch.pi * frequencies / float(self._FS) # phase increment per sample
-        phase = torch.cumsum(delta, axis=0) # integrate
+        delta = 2 * torch.pi * frequencies / float(self._FS)
+        initial_phase = torch.rand(frequencies.shape[1]) * 2 * torch.pi
+        phase = initial_phase.unsqueeze(0) + torch.cumsum(delta, axis=0)  # start from random phase
         phase = torch.fmod(phase, 2 * torch.pi) # wrap phase to prevent overflow
         return phase
 
@@ -104,7 +106,10 @@ class Sonifier():
             raise ValueError(f"input shape {list(states.shape)} does not match with standard shape {list(self._INPUT_SHAPE)}")
         S, L, V = self._INPUT_SHAPE
         states = states.reshape(S * L, V).float() # (time, voices)
-        # states = pca_reduce(states, q=128)
+
+        if self.config["pca"] is not None: 
+            states = pca_reduce(states, q=self.config["pca"])
+
         if self.config["do_abs"]:
             states = torch.abs(states)
         

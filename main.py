@@ -3,7 +3,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from sonifier import Sonifier
 from scipy.io import wavfile
 
-NEW_TOKENS = 3
+NEW_TOKENS = 4
 
 tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
 model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
@@ -21,10 +21,10 @@ with torch.no_grad():
 
 # Generated token ids (prompt + new tokens)
 generated_ids = output.sequences
-#generated_text = tokenizer.convert_ids_to_tokens(generated_ids[0], skip_special_tokens=True)
-#print(generated_text)
+generated_text = tokenizer.convert_ids_to_tokens(generated_ids[0], skip_special_tokens=True)
+print("\n".join(generated_text))
 
-hidden_states = output.hidden_states 
+hidden_states = output.hidden_states
 # (step(tuple), layers(tuple), batch(tensor), seq(tensor), hidden(tensor))
 
 # Copy/reshape select hidden states to steps
@@ -38,8 +38,10 @@ for step in hidden_states:
 
 states = torch.stack(steps) # (time, layers, hidden)
 
-sonify = Sonifier(states.shape, note_length=0.12)
-sonify.config["freq_map"] = torch.arange(0, 2048)
+
+sonify = Sonifier(states.shape, note_length=2/17, fs=44100)
+# sonify.config["freq_map"] = torch.arange(0, 2048)
 sonify.config["sonification_type"] = "freq"
+sonify.config["freq_lower"] = 0
 wav = sonify(states).numpy()
-wavfile.write("stereo.wav", 44100, wav)
+wavfile.write("03-39.0.1_rand-init-phase.wav", 44100, wav)
