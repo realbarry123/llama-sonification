@@ -44,4 +44,4 @@ sonify = Sonifier(states.shape, note_length=2/17, fs=44100)
 sonify.config["sonification_type"] = "freq"
 # sonify.config["freq_lower"] = 50
 wav = sonify(states).numpy()
-wavfile.write("03-39.2_new-norm-wider-range.wav", 44100, wav)
+wavfile.write("03-39.3_n-n-w-r-n-original-std.wav", 44100, wav)

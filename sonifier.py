@@ -17,7 +17,6 @@ class Sonifier():
             "sonification_type": "freq",
             "freq_lower": 20,
             "freq_upper": 20000,
-            "do_abs": True,
 
             "do_interpolate": False,
             "do_diff": False,
@@ -110,13 +109,7 @@ class Sonifier():
         if self.config["pca"] is not None: 
             states = pca_reduce(states, q=self.config["pca"])
 
-        if self.config["do_abs"]:
-            states = torch.abs(states)
-        
         states = normalize(states, self.config["freq_lower"], self.config["freq_upper"])
-
-        if self.config["do_abs"]:
-            states = states.clamp(min=self.config["freq_lower"])
 
         if self.config["do_interpolate"]:
             freq_samples = self.interpolate(states, self._SAMPLES_PER_NOTE)
