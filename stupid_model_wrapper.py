@@ -5,7 +5,7 @@ class ModelWrapper():
 
     def __init__(self):
         self.vocab = (
-            " ",
+            " ", " ", " ", " "
             "ear",
             "gly",
             "tion",
@@ -15,7 +15,10 @@ class ModelWrapper():
             "um",
             "ac",
             "tual",
-            "ly"
+            "ly",
+            "well",
+            "I",
+            ";"
         )
 
     def next(self):

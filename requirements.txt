@@ -1,5 +1,7 @@
 matplotlib
 numpy
+pygame
 scipy
+sounddevice
 torch
 transformers
