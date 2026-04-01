@@ -34,6 +34,7 @@ while running:
     keys = pygame.key.get_pressed()
     if keys[pygame.K_LSHIFT] and keys[pygame.K_9] and keys[pygame.K_SEMICOLON]:
         running = False
+        model.write_context("context.txt")
     
     if pygame.time.get_ticks() - last_ticked_time >= 1000: # tick every second
 

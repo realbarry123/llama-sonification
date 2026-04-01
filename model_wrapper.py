@@ -12,6 +12,7 @@ class ModelWrapper():
         self.next_state_idx = 0
         self.context = None
         self.hidden_states = None
+        self.filler_token_id = self.tokenizer.encode("...", add_special_tokens=False)[0]
     
 
     def seed(self, text):
@@ -29,7 +30,8 @@ class ModelWrapper():
                 max_new_tokens=tokens,
                 return_dict_in_generate=True,
                 output_hidden_states=True,
-                output_scores=False
+                output_scores=False,
+                eos_token_id=self.filler_token_id
             )
         
         self.context["input_ids"] = output.sequences
@@ -79,6 +81,10 @@ class ModelWrapper():
             steps.append(layers)
 
         return torch.stack(steps).to("cpu") # (time, layers, hidden)
+    
+    def write_context(self, file_path: str):
+        with open(file_path, "a") as f:
+            f.write(self.tokenizer.batch_decode(self.context["input_ids"])[0])
     
 
 if __name__ == "__main__":
