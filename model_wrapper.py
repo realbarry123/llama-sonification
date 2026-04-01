@@ -20,8 +20,8 @@ class ModelWrapper():
 
 
     def generate(self, tokens):
-        if not self.context:
-            raise ValueError("must provide seed before generation")
+        #if not self.context:
+        #    raise ValueError("must provide seed before generation")
 
         with torch.no_grad():
             output = self.model.generate(
@@ -32,16 +32,24 @@ class ModelWrapper():
                 output_scores=False
             )
         
-        self.context = output.sequences
+        self.context["input_ids"] = output.sequences
+        self.context["attention_mask"] = torch.ones_like(output.sequences)
         self.hidden_states = output.hidden_states
     
 
     def next(self):
         if self.next_state_idx == self.chunk_size:
-            self.generate()
+            self.generate(self.chunk_size)
             self.next_state_idx = 0
-        next_token = self.context[self.next_seq_idx]
-        next_state = self.hidden_states[self.next_state_idx]
+        
+        if self.next_seq_idx-1 >= 0:
+            next_token = self.context["input_ids"][0][self.next_seq_idx-1]
+            next_token = self.tokenizer.decode(next_token)
+        else:
+            next_token = " "
+
+        # Slice from the hidden states (rather than indexing)
+        next_state = self.hidden_states[self.next_state_idx : self.next_state_idx+1]
 
         self.next_seq_idx += 1
         self.next_state_idx += 1
@@ -52,9 +60,9 @@ class ModelWrapper():
 
         if self.output == None:
             raise ValueError("output does not exist yet")
-        generated_ids = self.output.sequences
+        
         generated_tokens = self.tokenizer.convert_ids_to_tokens(
-            self.context[0], 
+            self.context[-1], 
             skip_special_tokens=True
         )
         return generated_tokens
