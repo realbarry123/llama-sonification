@@ -17,12 +17,10 @@ class ModelWrapper():
 
     def seed(self, text):
         self.context = self.tokenizer(text, return_tensors="pt").to(self.model.device)
-        self.generate(self.chunk_size)
+        self._generate(self.chunk_size)
 
 
-    def generate(self, tokens):
-        #if not self.context:
-        #    raise ValueError("must provide seed before generation")
+    def _generate(self, tokens):
 
         with torch.no_grad():
             output = self.model.generate(
@@ -40,8 +38,11 @@ class ModelWrapper():
     
 
     def next(self):
+        if self.context == None:
+            raise RuntimeError("model context not initialized (Did you call `seed`?)")
+        
         if self.next_state_idx == self.chunk_size:
-            self.generate(self.chunk_size)
+            self._generate(self.chunk_size)
             self.next_state_idx = 0
         
         if self.next_seq_idx-1 >= 0:
@@ -56,19 +57,8 @@ class ModelWrapper():
         self.next_seq_idx += 1
         self.next_state_idx += 1
         return next_token, self.format_hidden_states(next_state)
-
-
-    def get_last_tokens(self):
-
-        if self.output == None:
-            raise ValueError("output does not exist yet")
-        
-        generated_tokens = self.tokenizer.convert_ids_to_tokens(
-            self.context[-1], 
-            skip_special_tokens=True
-        )
-        return generated_tokens
     
+
     @staticmethod
     def format_hidden_states(hidden_states):
     
@@ -83,8 +73,11 @@ class ModelWrapper():
         return torch.stack(steps).to("cpu") # (time, layers, hidden)
     
     def write_context(self, file_path: str):
+        text = self.tokenizer.batch_decode(self.context["input_ids"])[0]
+        if text[:17] == "<|begin_of_text|>":
+            text = "\n" + text
         with open(file_path, "a") as f:
-            f.write(self.tokenizer.batch_decode(self.context["input_ids"])[0])
+            f.write(text)
     
 
 if __name__ == "__main__":
