@@ -7,17 +7,28 @@ class ModelWrapper():
     def __init__(self):
         self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
         self.model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
-        self.chunk_size = 4
+        self.chunk_size = 1
+        self.context_limit = 8
         self.next_seq_idx = 0
         self.next_state_idx = 0
         self.context = None
+        self.history = ""
         self.hidden_states = None
-        self.filler_token_id = self.tokenizer.encode("...", add_special_tokens=False)[0]
+        self.filler_token_id = self.tokenizer.encode("…", add_special_tokens=False)[0]
+        self.trim_length = 4
     
 
     def seed(self, text):
         self.context = self.tokenizer(text, return_tensors="pt").to(self.model.device)
         self._generate(self.chunk_size)
+    
+    
+    def _trim_context(self):
+        self.history += self.tokenizer.batch_decode(self.context["input_ids"][:, :self.trim_length])[0]
+
+        self.context["input_ids"] = self.context["input_ids"][:, self.trim_length:]
+
+        self.next_seq_idx -= self.trim_length
 
 
     def _generate(self, tokens):
@@ -29,17 +40,21 @@ class ModelWrapper():
                 return_dict_in_generate=True,
                 output_hidden_states=True,
                 output_scores=False,
+                temperature=0.7,
                 eos_token_id=self.filler_token_id
             )
         
         self.context["input_ids"] = output.sequences
+        # print(len(self.context["input_ids"][0]))
+        if len(self.context["input_ids"][0]) >= self.context_limit:
+            self._trim_context()
         self.context["attention_mask"] = torch.ones_like(output.sequences)
         self.hidden_states = output.hidden_states
     
 
     def next(self):
         if self.context == None:
-            raise RuntimeError("model context not initialized (Did you call `seed`?)")
+            raise RuntimeError("model context not initialized. Did you call `seed`?")
         
         if self.next_state_idx == self.chunk_size:
             self._generate(self.chunk_size)
@@ -72,8 +87,17 @@ class ModelWrapper():
 
         return torch.stack(steps).to("cpu") # (time, layers, hidden)
     
+
     def write_context(self, file_path: str):
         text = self.tokenizer.batch_decode(self.context["input_ids"])[0]
+        if text[:17] == "<|begin_of_text|>":
+            text = "\n" + text
+        with open(file_path, "a") as f:
+            f.write(text)
+
+
+    def write_history(self, file_path: str):
+        text = self.history + self.tokenizer.batch_decode(self.context["input_ids"])[0]
         if text[:17] == "<|begin_of_text|>":
             text = "\n" + text
         with open(file_path, "a") as f:
@@ -83,11 +107,12 @@ class ModelWrapper():
 if __name__ == "__main__":
     model = ModelWrapper()
     model.seed("I am")
-    for i in range(10):
-        token, state = model.next()
-        print(token)
-        print(state.shape)
-        time.sleep(1)
+    try:
+        while True:
+            token, state = model.next()
+            print(token)
+    except KeyboardInterrupt:
+        model.write_history("context.txt")
     # model.generate(5)
     # print(model.get_last_output())
     # print(model.get_last_hidden_state().shape)
