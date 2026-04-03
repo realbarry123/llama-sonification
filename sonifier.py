@@ -23,6 +23,7 @@ class Sonifier():
             "pca": None,
 
             "channel_names": ("-b", "-f"),
+            "gain": 0.4,
 
             "freq_map": None
         }
@@ -73,7 +74,7 @@ class Sonifier():
         """
         mix = torch.sum(audio, dim=2)
         mix /= torch.max(torch.abs(mix))
-        return (mix * 32767).to(torch.int16)
+        return (mix * 32767 * self.config["gain"]).to(torch.int16)
 
 
     def get_diff_mask(self, states: torch.Tensor):
