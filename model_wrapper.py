@@ -117,9 +117,11 @@ class ModelWrapper():
             return " "
         return txt
     
+    def _get_context(self):
+        return self.tokenizer.batch_decode(self.context["input_ids"])[0]
 
     def write_context(self, file_path: str):
-        text = self.tokenizer.batch_decode(self.context["input_ids"])[0]
+        text = self._get_context()
         if text[:17] == "<|begin_of_text|>":
             text = "\n" + text
         with open(file_path, "a") as f:
@@ -127,7 +129,7 @@ class ModelWrapper():
 
 
     def write_history(self, file_path: str):
-        text = self.history + self.tokenizer.batch_decode(self.context["input_ids"])[0]
+        text = self.history + self._get_context()
         if text[:17] == "<|begin_of_text|>":
             text = "\n" + text
         with open(file_path, "a") as f:

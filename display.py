@@ -5,7 +5,7 @@ from model_wrapper import ModelWrapper
 import threading
 import queue
 
-FULL_SCREEN = False
+FULL_SCREEN = True
 
 # MODEL SETUP
 
@@ -94,8 +94,10 @@ while running:
     text_rect.center = (VW // 2, VH // 2)
     screen.blit(text_surface, text_rect)
 
-    # debug_surface = debug_font.render(str(pygame.time.get_ticks()), True, (255, 0, 255))
-    # screen.blit(debug_surface, text_rect)
+    debug_surface = debug_font.render(model._get_context(), True, (255, 0, 255))
+    debug_rect = debug_surface.get_rect()
+    debug_rect.center = (VW // 2, 50)
+    screen.blit(debug_surface, debug_rect)
 
     pygame.display.flip()
 
