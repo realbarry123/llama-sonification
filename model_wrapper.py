@@ -1,5 +1,6 @@
 import torch
 import time
+import math
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 class ModelWrapper():
@@ -7,32 +8,42 @@ class ModelWrapper():
     def __init__(self):
         self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
         self.model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
-        self.chunk_size = 1
-        self.context_limit = 8
-        self.next_seq_idx = 0
+        self.chunk_size = 4
+        self.context_limit = 32
+        self.next_seq_idx = -1  # lag behind state index
         self.next_state_idx = 0
         self.context = None
         self.history = ""
         self.hidden_states = None
         self.filler_token_id = self.tokenizer.encode("…", add_special_tokens=False)[0]
         self.trim_length = 4
+        self.verbose = True
+        self.seed_length = 0
+        self.temperature = 2.0
+        self.temp_period = 30 * 60  # every hour
+        self.count = 0
+
+        assert self.trim_length >= self.chunk_size
     
 
     def seed(self, text):
+        if self.verbose: print(f"Called seed(\"{text}\")")
         self.context = self.tokenizer(text, return_tensors="pt").to(self.model.device)
+        self.seed_length = len(self.context["input_ids"][0])
         self._generate(self.chunk_size)
     
-    
-    def _trim_context(self):
-        self.history += self.tokenizer.batch_decode(self.context["input_ids"][:, :self.trim_length])[0]
 
+    def _trim_context(self):
+        if self.verbose: print(f"Called _trim_context")
+        self.history += self.tokenizer.batch_decode(self.context["input_ids"][:, :self.trim_length])[0]
         self.context["input_ids"] = self.context["input_ids"][:, self.trim_length:]
 
         self.next_seq_idx -= self.trim_length
 
 
     def _generate(self, tokens):
-
+        if self.verbose: print(f"Called _generate")
+        self._update_temperature()
         with torch.no_grad():
             output = self.model.generate(
                 **self.context,
@@ -40,16 +51,20 @@ class ModelWrapper():
                 return_dict_in_generate=True,
                 output_hidden_states=True,
                 output_scores=False,
-                temperature=0.7,
-                eos_token_id=self.filler_token_id
+                temperature=self.temperature,
+                eos_token_id=None,
+                pad_token_id=self.tokenizer.eos_token_id
             )
         
         self.context["input_ids"] = output.sequences
-        # print(len(self.context["input_ids"][0]))
+
         if len(self.context["input_ids"][0]) >= self.context_limit:
             self._trim_context()
+
         self.context["attention_mask"] = torch.ones_like(output.sequences)
         self.hidden_states = output.hidden_states
+
+        if self.verbose: print(f"New lengths: sequence={len(output.sequences[0])}, hidden_states={len(self.hidden_states)}")
     
 
     def next(self):
@@ -60,9 +75,10 @@ class ModelWrapper():
             self._generate(self.chunk_size)
             self.next_state_idx = 0
         
-        if self.next_seq_idx-1 >= 0:
-            next_token = self.context["input_ids"][0][self.next_seq_idx-1]
+        if self.next_seq_idx >= 0:  # prevent -1 from indexing
+            next_token = self.context["input_ids"][0][self.next_seq_idx + self.seed_length]
             next_token = self.tokenizer.decode(next_token)
+            next_token = self._process_newlines(next_token)
         else:
             next_token = " "
 
@@ -71,11 +87,17 @@ class ModelWrapper():
 
         self.next_seq_idx += 1
         self.next_state_idx += 1
-        return next_token, self.format_hidden_states(next_state)
+        self.count += 1
+        return next_token, self._format_hidden_states(next_state)
     
 
+    def _update_temperature(self):
+        self.temperature = 1.5 * math.sin(2 * math.pi / self.temp_period * self.count) + 2
+        if self.verbose: print(f"Temperature: {self.temperature}")
+
+
     @staticmethod
-    def format_hidden_states(hidden_states):
+    def _format_hidden_states(hidden_states):
     
         steps = []
 
@@ -86,6 +108,14 @@ class ModelWrapper():
             steps.append(layers)
 
         return torch.stack(steps).to("cpu") # (time, layers, hidden)
+
+    
+    @staticmethod
+    def _process_newlines(txt):
+        txt = txt.replace("\n", "")
+        if txt == "":
+            return " "
+        return txt
     
 
     def write_context(self, file_path: str):
@@ -110,7 +140,7 @@ if __name__ == "__main__":
     try:
         while True:
             token, state = model.next()
-            print(token)
+            # print(token)
     except KeyboardInterrupt:
         model.write_history("context.txt")
     # model.generate(5)
