@@ -6,6 +6,7 @@ import threading
 import queue
 
 FULL_SCREEN = True
+DEBUG = True
 
 # MODEL SETUP
 
@@ -21,9 +22,9 @@ audio_queue = queue.Queue(maxsize=2)
 
 def producer():
     while True:
-        token, states = model.next()
+        token, states, context = model.next()
         audio = sonifier(states)
-        audio_queue.put((token, audio))  # blocks if queue is full
+        audio_queue.put((token, audio, context))  # blocks if queue is full
 
 producer_thread = threading.Thread(target=producer, daemon=True)
 producer_thread.start()
@@ -35,7 +36,7 @@ pygame.init()
 VW = 500
 VH = 500
 
-if FULL_SCREEN:
+if FULL_SCREEN or True:
     VW = 1512
     VH = 982
 INIT_TEXT_COLOR = 255
@@ -48,8 +49,9 @@ if FULL_SCREEN:
     pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 running = True
 font = pygame.font.SysFont('Arial', 128)
-debug_font = pygame.font.SysFont('Arial', 15)
+debug_font = pygame.font.SysFont('Arial', 20)
 current_token = ""
+context = ""
 text_color = INIT_TEXT_COLOR
 d_text_color = INIT_D_TEXT_COLOR
 
@@ -71,6 +73,7 @@ while running:
         model.__init__()
         model.seed("")
 
+
     # CONSUMER (very nice)
 
     is_playing = False  # placeholder
@@ -82,7 +85,7 @@ while running:
         is_playing = False
 
     if not is_playing and not audio_queue.empty():
-        current_token, audio = audio_queue.get()
+        current_token, audio, context = audio_queue.get()
         sd.play(audio)
         text_color = INIT_TEXT_COLOR
         d_text_color = INIT_D_TEXT_COLOR
@@ -94,10 +97,11 @@ while running:
     text_rect.center = (VW // 2, VH // 2)
     screen.blit(text_surface, text_rect)
 
-    debug_surface = debug_font.render(model._get_context(), True, (255, 0, 255))
-    debug_rect = debug_surface.get_rect()
-    debug_rect.center = (VW // 2, 50)
-    screen.blit(debug_surface, debug_rect)
+    if DEBUG:
+        debug_surface = debug_font.render(context, True, (200, 200, 255))
+        debug_rect = debug_surface.get_rect()
+        debug_rect.center = (VW // 2, 50)
+        screen.blit(debug_surface, debug_rect)
 
     pygame.display.flip()
 

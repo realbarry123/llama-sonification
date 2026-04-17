@@ -9,21 +9,21 @@ class ModelWrapper():
         self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
         self.model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
         self.chunk_size = 4
-        self.context_limit = 32
+        self.context_limit = 28
         self.next_seq_idx = -1  # lag behind state index
         self.next_state_idx = 0
         self.context = None
         self.history = ""
         self.hidden_states = None
         self.filler_token_id = self.tokenizer.encode("…", add_special_tokens=False)[0]
-        self.trim_length = 4
+        self.trim_length = 1
         self.verbose = True
         self.seed_length = 0
         self.temperature = 2.0
         self.temp_period = 30 * 60  # every hour
         self.count = 0
 
-        assert self.trim_length >= self.chunk_size
+        # assert self.trim_length >= self.chunk_size
     
 
     def seed(self, text):
@@ -58,9 +58,6 @@ class ModelWrapper():
         
         self.context["input_ids"] = output.sequences
 
-        if len(self.context["input_ids"][0]) >= self.context_limit:
-            self._trim_context()
-
         self.context["attention_mask"] = torch.ones_like(output.sequences)
         self.hidden_states = output.hidden_states
 
@@ -70,6 +67,9 @@ class ModelWrapper():
     def next(self):
         if self.context == None:
             raise RuntimeError("model context not initialized. Did you call `seed`?")
+
+        if len(self.context["input_ids"][0]) >= self.context_limit:
+            self._trim_context()
         
         if self.next_state_idx == self.chunk_size:
             self._generate(self.chunk_size)
@@ -88,7 +88,7 @@ class ModelWrapper():
         self.next_seq_idx += 1
         self.next_state_idx += 1
         self.count += 1
-        return next_token, self._format_hidden_states(next_state)
+        return next_token, self._format_hidden_states(next_state), self.get_context()
     
 
     def _update_temperature(self):
@@ -119,6 +119,12 @@ class ModelWrapper():
     
     def _get_context(self):
         return self.tokenizer.batch_decode(self.context["input_ids"])[0]
+    
+    def get_context(self):
+        # print(self.tokenizer.batch_decode(self.context["input_ids"][:self.next_seq_idx])[0])
+        return self.tokenizer.batch_decode(
+            self.context["input_ids"][:, :self.next_seq_idx + self.seed_length]
+        )[0]
 
     def write_context(self, file_path: str):
         text = self._get_context()
