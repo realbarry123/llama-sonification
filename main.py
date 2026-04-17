@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from sonifier import Sonifier
@@ -5,8 +7,11 @@ from scipy.io import wavfile
 
 NEW_TOKENS = 4
 
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
-model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
+load_dotenv()
+CACHE_PATH = os.getenv("CACHE_PATH")
+
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B", cache_dir=CACHE_PATH)
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B", cache_dir=CACHE_PATH)
 
 inputs = tokenizer("I am", return_tensors="pt").to(model.device)
 
