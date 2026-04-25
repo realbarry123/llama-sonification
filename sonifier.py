@@ -1,7 +1,7 @@
 import torch
 from scipy.io import wavfile
 
-from data import normalize, pca_reduce
+from data import pca_reduce
 from masker import Masker
 
 
@@ -53,6 +53,10 @@ class Sonifier():
 
         x = x.squeeze().permute(1, 0) # (T * scale, V)
         return x
+    
+    def to_freq(self, x, lower, upper):
+        freq = x.abs() / (4 * x.std()) * (upper-lower) + lower
+        return freq
 
     
     def generate_phase(self, frequencies):
@@ -110,7 +114,7 @@ class Sonifier():
         if self.config["pca"] is not None: 
             states = pca_reduce(states, q=self.config["pca"])
 
-        states = normalize(states, self.config["freq_lower"], self.config["freq_upper"])
+        states = self.to_freq(states, self.config["freq_lower"], self.config["freq_upper"])
 
         if self.config["do_interpolate"]:
             freq_samples = self.interpolate(states, self._SAMPLES_PER_NOTE)
@@ -138,7 +142,7 @@ class Sonifier():
         states = states.reshape(S * L, V).float() # (time, voices)
         if self.config["do_abs"]:
             gains = torch.abs(gains)
-        gains = normalize(states, lower=0, upper=0.5)
+        gains = self.to_freq(states, lower=0, upper=0.5)
 
         if len(freq_map.shape) == 1:
 
