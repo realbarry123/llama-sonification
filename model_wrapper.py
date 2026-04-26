@@ -17,7 +17,7 @@ class ModelWrapper():
         self.hidden_states = None
         self.filler_token_id = self.tokenizer.encode("…", add_special_tokens=False)[0]
         self.trim_length = 1
-        self.verbose = True
+        self.verbose = False
         self.seed_length = 0
         self.temperature = 2.0
         self.temp_period = 30 * 60  # every hour

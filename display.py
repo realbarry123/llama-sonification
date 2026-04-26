@@ -6,7 +6,6 @@ import threading
 import queue
 
 FULL_SCREEN = True
-DEBUG = True
 
 # MODEL SETUP
 
@@ -49,7 +48,7 @@ if FULL_SCREEN:
     pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 running = True
 font = pygame.font.SysFont('Arial', 128)
-debug_font = pygame.font.SysFont('Arial', 20)
+context_font = pygame.font.SysFont('Arial', 20)
 current_token = ""
 context = ""
 text_color = INIT_TEXT_COLOR
@@ -92,16 +91,15 @@ while running:
 
     screen.fill("black")
 
-    text_surface = font.render(current_token, True, (text_color, text_color, text_color))
-    text_rect = text_surface.get_rect()
+    cur_surface = font.render(current_token, True, (text_color, text_color, text_color))
+    text_rect = cur_surface.get_rect()
     text_rect.center = (VW // 2, VH // 2)
-    screen.blit(text_surface, text_rect)
+    screen.blit(cur_surface, text_rect)
 
-    if DEBUG:
-        debug_surface = debug_font.render(context, True, (200, 200, 255))
-        debug_rect = debug_surface.get_rect()
-        debug_rect.center = (VW // 2, 50)
-        screen.blit(debug_surface, debug_rect)
+    context_surface = context_font.render(context, True, (200, 200, 255))
+    context_rect = context_surface.get_rect()
+    context_rect.center = (VW // 2, 50)
+    screen.blit(context_surface, context_rect)
 
     pygame.display.flip()
 
