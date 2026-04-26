@@ -54,11 +54,11 @@ class Sonifier():
         x = x.squeeze().permute(1, 0) # (T * scale, V)
         return x
     
-    @staticmethod
-    def _to_freq(x, lower, upper):
-        freq = x.abs() / (4 * x.std()) * (upper-lower) + lower
+    def _to_freq(self, x, z=4):
+        lower = self.config["freq_lower"]
+        upper = self.config["freq_upper"]
+        freq = x.abs() / (z * x.std()) * (upper-lower) + lower
         return freq
-
 
     def _generate_phase(self, frequencies):
         """
@@ -71,7 +71,6 @@ class Sonifier():
         phase = torch.fmod(phase, 2 * torch.pi) # wrap phase to prevent overflow
         return phase
 
-
     def _mix(self, audio):
         """ 
         Sum the voice channels of a (channels, time, voices)-tensor, 
@@ -81,7 +80,6 @@ class Sonifier():
         mix /= torch.max(torch.abs(mix))
         return (mix * 32767 * self.config["gain"]).to(torch.int16)
 
-    
     def _get_diff_mask(self, states: torch.Tensor):
         """
         Generate a (time, voices) mask to weigh an audio tensor's amplitude
@@ -102,7 +100,6 @@ class Sonifier():
         diff = to_uniform(diff, 0, 1)
         return diff
 
-
     def _freq_son(self, states: torch.Tensor):
         """
         Sonify a (seq_length, layers, voices)-tensor
@@ -115,7 +112,7 @@ class Sonifier():
         if self.config["pca"] is not None: 
             states = pca_reduce(states, q=self.config["pca"])
 
-        states = self._to_freq(states, self.config["freq_lower"], self.config["freq_upper"])
+        states = self._to_freq(states)
 
         if self.config["do_interpolate"]:
             freq_samples = self._interpolate(states, self._SAMPLES_PER_NOTE)
@@ -136,7 +133,6 @@ class Sonifier():
         stereo = stereo.permute(1, 0) # stupid but I have to do this
 
         return stereo
-    
 
     def _gain_son(self, states: torch.Tensor, freq_map: torch.Tensor):
 
@@ -173,7 +169,6 @@ class Sonifier():
         stereo = stereo.permute(1, 0) # stupid but I have to do this
 
         return stereo
-    
 
     def __call__(self, states: torch.Tensor, freq_map: torch.Tensor=None):
 
