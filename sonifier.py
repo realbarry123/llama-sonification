@@ -17,6 +17,7 @@ class Sonifier():
             "sonification_type": "freq",
             "freq_lower": 20,
             "freq_upper": 20000,
+            "max_z": 2,
 
             "do_interpolate": False,
             "do_diff": False,
@@ -54,10 +55,10 @@ class Sonifier():
         x = x.squeeze().permute(1, 0) # (T * scale, V)
         return x
     
-    def _to_freq(self, x, z=4):
+    def _to_freq(self, x):
         lower = self.config["freq_lower"]
         upper = self.config["freq_upper"]
-        freq = x.abs() / (z * x.std()) * (upper-lower) + lower
+        freq = x.abs() / (self.config["max_z"] * x.std()) * (upper-lower) + lower
         return freq
 
     def _generate_phase(self, frequencies):
