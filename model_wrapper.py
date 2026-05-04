@@ -1,13 +1,16 @@
+import os
+from dotenv import load_dotenv
 import torch
-import time
 import math
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 class ModelWrapper():
 
     def __init__(self):
-        self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
-        self.model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
+        load_dotenv()
+        CACHE_PATH = os.getenv("CACHE_PATH")
+        self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B", cache_dir=CACHE_PATH)
+        self.model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B", cache_dir=CACHE_PATH)
         self.chunk_size = 4
         self.context_limit = 28
         self.next_seq_idx = -1  # lag behind state index
@@ -25,13 +28,11 @@ class ModelWrapper():
 
         # assert self.trim_length >= self.chunk_size
     
-
     def seed(self, text):
         if self.verbose: print(f"Called seed(\"{text}\")")
         self.context = self.tokenizer(text, return_tensors="pt").to(self.model.device)
         self.seed_length = len(self.context["input_ids"][0])
         self._generate(self.chunk_size)
-    
 
     def _trim_context(self):
         if self.verbose: print(f"Called _trim_context")
@@ -39,7 +40,6 @@ class ModelWrapper():
         self.context["input_ids"] = self.context["input_ids"][:, self.trim_length:]
 
         self.next_seq_idx -= self.trim_length
-
 
     def _generate(self, tokens):
         if self.verbose: print(f"Called _generate")
@@ -63,7 +63,6 @@ class ModelWrapper():
 
         if self.verbose: print(f"New lengths: sequence={len(output.sequences[0])}, hidden_states={len(self.hidden_states)}")
     
-
     def next(self):
         if self.context == None:
             raise RuntimeError("model context not initialized. Did you call `seed`?")
@@ -90,11 +89,9 @@ class ModelWrapper():
         self.count += 1
         return next_token, self._format_hidden_states(next_state), self.get_context()
     
-
     def _update_temperature(self):
         self.temperature = 1.5 * math.sin(2 * math.pi / self.temp_period * self.count) + 2
         if self.verbose: print(f"Temperature: {self.temperature}")
-
 
     @staticmethod
     def _format_hidden_states(hidden_states):
@@ -109,7 +106,6 @@ class ModelWrapper():
 
         return torch.stack(steps).to("cpu") # (time, layers, hidden)
 
-    
     @staticmethod
     def _process_newlines(txt):
         txt = txt.replace("\n", "")
@@ -133,24 +129,9 @@ class ModelWrapper():
         with open(file_path, "a") as f:
             f.write(text)
 
-
     def write_history(self, file_path: str):
         text = self.history + self._get_context()
         if text[:17] == "<|begin_of_text|>":
             text = "\n" + text
         with open(file_path, "a") as f:
             f.write(text)
-    
-
-if __name__ == "__main__":
-    model = ModelWrapper()
-    model.seed("I am")
-    try:
-        while True:
-            token, state = model.next()
-            # print(token)
-    except KeyboardInterrupt:
-        model.write_history("context.txt")
-    # model.generate(5)
-    # print(model.get_last_output())
-    # print(model.get_last_hidden_state().shape)
