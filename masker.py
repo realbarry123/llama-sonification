@@ -9,7 +9,7 @@ class Masker():
         variation across the voices dimension. To be multiplied with
         audio tensor. 
         """
-        l_mask = torch.arange(1, 0, -1/voices).unsqueeze(0)
+        l_mask = torch.arange(1, 0, -1/voices).unsqueeze(0)[:, :voices]
         r_mask = torch.ones(voices).unsqueeze(0) - l_mask
 
         return l_mask, r_mask
@@ -21,7 +21,7 @@ class Masker():
         variation across the layer dimension. To be multiplied with
         audio tensor.
         """
-        f_mask = torch.arange(1, 0, -1/pass_size)
+        f_mask = torch.arange(1, 0, -1/pass_size)[:pass_size]
         b_mask = torch.ones(pass_size) - f_mask
 
         n_passes = int(timesteps / pass_size)
