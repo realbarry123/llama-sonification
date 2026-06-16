@@ -1,6 +1,6 @@
-<h1 align="right">Transformer Sonification</h1> 
+<h1 align="center">Transformer Sonification</h1> 
 
-### About
+## About
 
 *"What it is or what it does?"* 
 
@@ -14,7 +14,7 @@ In 2026, interactions with language models are more accessible than ever before.
 
 This project was created as part of a fellowship at Building 21, McGill University in Winter 2026 ([building21.ca/scholars/barry-yu](https://www.building21.ca/scholars/barry-yu)). I would like to thank the Building 21 community as well as Andy S. Yu for their endlessly inspiring support. 
 
-### Setup
+## Setup
 
 1. Fork the repo and install requirements:
 ```bash
@@ -37,7 +37,7 @@ CACHE_PATH="/Volumes/some-hard-drive/cache-file-name
 python display.py
 ```
 
-### Method
+## Method
 
 During each forward pass, the hidden states at the last token position are taken (due to KV caching). Each activation level is mapped to a frequency via
 
